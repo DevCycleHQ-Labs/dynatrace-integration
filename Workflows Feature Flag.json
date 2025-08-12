@@ -1,0 +1,64 @@
+{
+  "id": "79352b12-343e-4763-915e-cbe40481f5d3",
+  "title": "featureflag workflow",
+  "tasks": {
+    "run_javascript_1": {
+      "name": "run_javascript_1",
+      "input": {
+        "script": "// optional import of sdk modules\nimport { execution } from '@dynatrace-sdk/automation-utils';\nimport { executionsClient } from '@dynatrace-sdk/client-automation';\nimport { eventsClient, EventIngestEventType } from \"@dynatrace-sdk/client-classic-environment-v2\";\n\n\nexport default async function ({executionId}) {\n  // your code goes here\n  // e.g. get the current execution\n  const ex = await execution();\n\n  var config = {executionId, id: 'execute_dql_query_1'}\n  var myResult = await executionsClient.getTaskExecutionResult(config)\n  // log the result object\n  for( const record of myResult.records) {\n    const serviceId = record[\"dt.entity.service\"]\n    const eventData = ex.params.event\n    try{\n    const data = await eventsClient.createEvent({\n      body: {\n        eventType: EventIngestEventType.CustomConfiguration,\n        title: \"feature flag update\",\n        end_time: eventData.end_time,\n        start_time: eventData.start_time,\n        entitySelector: `type(SERVICE),entityId(${serviceId})`,\n        properties:{\n          feature_flag_key: eventData.feature_flag_key,\n          environmentId: eventData.environmentId,\n          name: eventData[\"task.name\"],\n          outlook: eventData[\"task.outlook\"],\n          category: eventData[\"event.category\"],\n          provider: eventData[\"event.provider\"]          \n        }\n      },\n    });\n    } catch (e){\n      console.log(e)\n    }\n  }\n  return { triggeredBy: ex.trigger };\n}"
+      },
+      "action": "dynatrace.automations:run-javascript",
+      "position": {
+        "x": 0,
+        "y": 2
+      },
+      "conditions": {
+        "states": {
+          "execute_dql_query_1": "OK"
+        }
+      },
+      "description": "Run custom JavaScript code.",
+      "predecessors": [
+        "execute_dql_query_1"
+      ]
+    },
+    "execute_dql_query_1": {
+      "name": "execute_dql_query_1",
+      "input": {
+        "query": "fetch spans |\nfilter contains(span.name\n, \"feature_flag_evaluation\") AND contains(feature_flag.environment, \"{{event()[\"environmentId\"]}}\")| dedup dt.entity.service | fields dt.entity.service",
+        "failOnEmptyResult": false
+      },
+      "action": "dynatrace.automations:execute-dql-query",
+      "position": {
+        "x": 0,
+        "y": 1
+      },
+      "description": "Make use of Dynatrace Grail data in your workflow.",
+      "predecessors": []
+    }
+  },
+  "description": "",
+  "actor": "e93adeb4-b1f1-4d6e-bc3e-62d95807e4bf",
+  "owner": "e93adeb4-b1f1-4d6e-bc3e-62d95807e4bf",
+  "ownerType": "USER",
+  "isPrivate": false,
+  "trigger": {
+    "eventTrigger": {
+      "isActive": true,
+      "filterQuery": "matchesValue(event.category , \"featureflag\")",
+      "uniqueExpression": null,
+      "triggerConfiguration": {
+        "type": "event",
+        "value": {
+          "query": "matchesValue(event.category , \"featureflag\")",
+          "eventType": "events"
+        }
+      }
+    }
+  },
+  "schemaVersion": 3,
+  "result": null,
+  "input": {},
+  "hourlyExecutionLimit": 1000,
+  "type": "STANDARD"
+}
